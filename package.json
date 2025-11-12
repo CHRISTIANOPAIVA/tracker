@@ -1,0 +1,37 @@
+{
+  "name": "fitness-monitor-app",
+  "version": "1.0.0",
+  "description": "Aplicativo completo de monitoramento de atividade física",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "webpack --mode production",
+    "test": "node test/test.js",
+    "seed": "node src/database/seed.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "chart.js": "^4.4.0",
+    "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "keywords": [
+    "fitness",
+    "health",
+    "monitoring",
+    "activity",
+    "tracking"
+  ],
+  "author": "Fitness Monitor Team",
+  "license": "MIT"
+}
