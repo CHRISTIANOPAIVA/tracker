@@ -276,6 +276,24 @@
                             </div>
                         </form>
                     </section>
+                    <section class="panel">
+                        <div class="panel-header">
+                            <h2>Configurações da API</h2>
+                        </div>
+                        <form id="api-config-form" class="form-grid">
+                            <label>
+                                URL base da API
+                                <input type="url" id="api-base-url" name="apiBaseUrl" placeholder="https://seu-backend.exemplo.com" required>
+                            </label>
+                            <p class="muted">
+                                Defina o endereço do backend que responde aos endpoints <code>/api</code>. Essa configuração é salva apenas neste navegador.
+                            </p>
+                            <div class="form-actions">
+                                <button type="submit" class="btn primary">Salvar URL</button>
+                                <button type="button" class="btn ghost" id="reset-api-base">Usar padrão</button>
+                            </div>
+                        </form>
+                    </section>
                 </div>
             </section>
         </main>

@@ -16,6 +16,31 @@ const QUICK_ACTIONS = [
 ];
 
 const DEFAULT_API_PORT = 3000;
+const API_BASE_STORAGE_KEY = 'fittrack.apiBaseUrl';
+
+const getStoredApiBaseUrl = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+        return window.localStorage?.getItem(API_BASE_STORAGE_KEY) || null;
+    } catch (error) {
+        return null;
+    }
+};
+
+const persistApiBaseUrl = (value) => {
+    if (typeof window === 'undefined') return;
+    try {
+        const storage = window.localStorage;
+        if (!storage) return;
+        if (!value) {
+            storage.removeItem(API_BASE_STORAGE_KEY);
+        } else {
+            storage.setItem(API_BASE_STORAGE_KEY, value);
+        }
+    } catch (error) {
+        // Ignore storage errors (private mode, etc.)
+    }
+};
 
 // Try to keep the API usable even when the frontend is served from a different origin (Live Server, etc.).
 // Consumers can override this behavior via window.APP_CONFIG.apiBaseUrl.
@@ -26,6 +51,11 @@ const resolveApiBaseUrl = () => {
 
     if (window.APP_CONFIG?.apiBaseUrl) {
         return window.APP_CONFIG.apiBaseUrl;
+    }
+
+    const stored = getStoredApiBaseUrl();
+    if (stored) {
+        return stored;
     }
 
     const { origin, hostname, port, protocol } = window.location;
@@ -267,12 +297,18 @@ class FitTrackApp {
                 stats: qs('#user-stats'),
             },
             newUserForm: qs('#new-user-form'),
+            apiConfig: {
+                form: qs('#api-config-form'),
+                input: qs('#api-base-url'),
+                reset: qs('#reset-api-base'),
+            },
         };
 
         this.timer = new ActivityTimer(qs('#timer-display'));
         this.bindEvents();
         this.populateStaticOptions();
         this.renderQuickActions();
+        this.setupApiConfigForm();
         this.init();
     }
 
@@ -341,6 +377,40 @@ class FitTrackApp {
                 this.nodes.activityFormPanel?.scrollIntoView({ behavior: 'smooth' });
             }
         });
+    }
+
+    setupApiConfigForm() {
+        const { form, input, reset } = this.nodes.apiConfig;
+        if (input) {
+            input.value = API_BASE_URL;
+        }
+
+        form?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const url = input?.value?.trim();
+            if (!url) {
+                Toast.show('Informe a URL da API ou clique em "Usar padrão".', 'error');
+                return;
+            }
+            this.updateApiBaseUrl(url);
+        });
+
+        reset?.addEventListener('click', () => {
+            this.updateApiBaseUrl('');
+        });
+    }
+
+    updateApiBaseUrl(url) {
+        const normalized = url?.trim();
+        persistApiBaseUrl(normalized || null);
+        if (normalized) {
+            window.APP_CONFIG = window.APP_CONFIG || {};
+            window.APP_CONFIG.apiBaseUrl = normalized;
+        } else if (window.APP_CONFIG) {
+            delete window.APP_CONFIG.apiBaseUrl;
+        }
+        Toast.show('Configuração da API salva. Recarregando…');
+        setTimeout(() => window.location.reload(), 500);
     }
 
     populateStaticOptions() {
