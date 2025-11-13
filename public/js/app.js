@@ -15,6 +15,65 @@ const QUICK_ACTIONS = [
     { label: 'Yoga 40m', type: 'yoga', duration: 40 },
 ];
 
+const DEFAULT_API_PORT = 3000;
+
+// Try to keep the API usable even when the frontend is served from a different origin (Live Server, etc.).
+// Consumers can override this behavior via window.APP_CONFIG.apiBaseUrl.
+const resolveApiBaseUrl = () => {
+    if (typeof window === 'undefined') {
+        return `http://localhost:${DEFAULT_API_PORT}`;
+    }
+
+    if (window.APP_CONFIG?.apiBaseUrl) {
+        return window.APP_CONFIG.apiBaseUrl;
+    }
+
+    const { origin, hostname, port, protocol } = window.location;
+    const normalizedOrigin = origin && origin !== 'null' ? origin : '';
+    const isHttpProtocol = /^https?:$/i.test(protocol);
+    const isLocalHost = ['localhost', '127.0.0.1', '', undefined].includes(hostname);
+
+    if (normalizedOrigin && (!isLocalHost || !port || Number(port) === DEFAULT_API_PORT)) {
+        return normalizedOrigin;
+    }
+
+    if (isLocalHost) {
+        const safeHost = hostname && hostname.length ? hostname : 'localhost';
+        const safeProtocol = isHttpProtocol ? protocol : 'http:';
+        return `${safeProtocol}//${safeHost}:${DEFAULT_API_PORT}`;
+    }
+
+    return `http://localhost:${DEFAULT_API_PORT}`;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+const buildApiUrl = (path) => {
+    if (/^https?:\/\//i.test(path)) {
+        return path;
+    }
+
+    try {
+        return new URL(path, API_BASE_URL).toString();
+    } catch (error) {
+        const trimmedBase = API_BASE_URL.replace(/\/+$/, '');
+        const trimmedPath = path.replace(/^\/+/, '');
+        return `${trimmedBase}/${trimmedPath}`;
+    }
+};
+
+const parseJsonOrThrow = (text, url) => {
+    if (!text) return null;
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        const preview = text.slice(0, 80).replace(/\s+/g, ' ').trim();
+        throw new Error(
+            `Resposta inesperada da API (${url}). Esperado JSON, mas recebemos: ${preview || 'conteúdo diferente'}.`
+        );
+    }
+};
+
 const qs = (selector, scope = document) => scope.querySelector(selector);
 const qsa = (selector, scope = document) => Array.from(scope.querySelectorAll(selector));
 
@@ -103,24 +162,46 @@ class ActivityTimer {
 }
 
 const apiRequest = async (path, options = {}) => {
-    const response = await fetch(path, {
+    const url = buildApiUrl(path);
+    const response = await fetch(url, {
         headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
         ...options,
     });
-
-    if (!response.ok) {
-        const errorPayload = await response
-            .json()
-            .catch(() => ({ error: 'Erro inesperado no servidor' }));
-        const message = errorPayload.error || 'Falha ao processar requisição';
-        throw new Error(message);
-    }
 
     if (response.status === 204) {
         return null;
     }
 
-    return response.json();
+    const contentType = response.headers.get('content-type') || '';
+    const bodyText = await response.text();
+
+    if (!response.ok) {
+        if (contentType.includes('application/json')) {
+            const errorPayload = parseJsonOrThrow(bodyText, url) || {};
+            const message = errorPayload?.error || 'Falha ao processar requisição';
+            throw new Error(message);
+        }
+
+        const hint = bodyText.slice(0, 80).replace(/\s+/g, ' ').trim();
+        throw new Error(
+            `Falha ao acessar ${url} (${response.status}). ` +
+                `Conteúdo retornado: ${contentType || 'desconhecido'}. ` +
+                `Verifique se o backend (${API_BASE_URL}) está ativo.${hint ? ` Resposta: ${hint}` : ''}`
+        );
+    }
+
+    if (!bodyText) {
+        return null;
+    }
+
+    if (!contentType.includes('application/json')) {
+        throw new Error(
+            `Resposta inesperada da API (${url}). Esperado 'application/json', mas recebemos '${contentType ||
+                'desconhecido'}'. Verifique se o backend está respondendo corretamente.`
+        );
+    }
+
+    return parseJsonOrThrow(bodyText, url);
 };
 
 const api = {
