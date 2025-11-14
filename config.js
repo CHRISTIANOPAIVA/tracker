@@ -1,4 +1,5 @@
 const path = require('path');
+const os = require('os');
 
 module.exports = {
     // Server Configuration
@@ -7,7 +8,17 @@ module.exports = {
     
     // Database Configuration
     database: {
-        path: path.join(__dirname, 'src', 'database', 'fitness_monitor.db'),
+        path: (() => {
+            if (process.env.DATABASE_PATH) {
+                return path.resolve(process.env.DATABASE_PATH);
+            }
+
+            if (process.env.VERCEL) {
+                return path.join(os.tmpdir(), 'fitness_monitor.db');
+            }
+
+            return path.join(__dirname, 'src', 'database', 'fitness_monitor.db');
+        })(),
         options: {
             verbose: console.log
         }
